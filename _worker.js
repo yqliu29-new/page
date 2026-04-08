@@ -182,9 +182,10 @@ function parseNode(n) {
 function subscription(domain) {
 	const links = NODES.map(n => {
 		const { host, port, tag } = parseNode(n);
-		return `vless://${UUID}@${host}:${port}?encryption=none&security=tls&sni=${domain}&fp=firefox&allowInsecure=0&type=ws&host=${domain}&path=%2F%3Fed%3D2560#${tag}`;
+		return `vless://${UUID}@${host}:${port}?encryption=none&security=tls&sni=${domain}&fp=firefox&allowInsecure=0&type=ws&host=${domain}&path=%2F%3Fed%3D2560#${encodeURIComponent(tag)}`;
 	});
-	return new Response(btoa(links.join('\n')), {
+	const text = links.join('\n');
+	return new Response(btoa(unescape(encodeURIComponent(text))), {
 		headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'no-store' }
 	});
 }
@@ -215,24 +216,22 @@ function singboxConfig(domain) {
 		inbounds: [{
 			type: 'tun', tag: 'tun-in',
 			address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
-			auto_route: true, strict_route: true, stack: 'mixed',
-			sniff: true, sniff_override_destination: true
+			auto_route: true, strict_route: true, stack: 'mixed'
 		}],
 		outbounds: [
 			{ type: 'selector', tag: 'proxy', outbounds: ['auto', ...tags], default: 'auto' },
 			{ type: 'urltest', tag: 'auto', outbounds: tags, url: 'https://www.gstatic.com/generate_204', interval: '5m' },
 			...proxies,
-			{ type: 'direct', tag: 'direct' },
-			{ type: 'block', tag: 'block' },
-			{ type: 'dns', tag: 'dns-out' }
+			{ type: 'direct', tag: 'direct' }
 		],
 		route: {
 			auto_detect_interface: true,
 			rules: [
-				{ protocol: 'dns', outbound: 'dns-out' },
+				{ action: 'sniff' },
+				{ protocol: 'dns', action: 'hijack-dns' },
 				{ ip_is_private: true, outbound: 'direct' },
 				{ rule_set: ['geosite-cn', 'geoip-cn'], outbound: 'direct' },
-				{ rule_set: 'geosite-category-ads-all', outbound: 'block' }
+				{ rule_set: 'geosite-category-ads-all', action: 'reject' }
 			],
 			rule_set: [
 				{ type: 'remote', tag: 'geoip-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs', download_detour: 'proxy' },
