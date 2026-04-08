@@ -209,6 +209,21 @@ function singboxConfig(domain) {
 			],
 			rules: [
 				{ outbound: 'any', server: 'direct-dns' },
+				{ domain_suffix: [
+					'weixin.qq.com','wechat.com','wx.qq.com','weixinbridge.com',
+					'jd.com','jd.hk','jdcloud.com','360buyimg.com',
+					'taobao.com','tmall.com','alicdn.com','alipay.com','aliyun.com','alibaba.com','alibabacloud.com','alipayobjects.com','mmstat.com','tbcdn.cn','idle.fish',
+					'qq.com','gtimg.com','qpic.cn','tencent.com','myqcloud.com','qcloud.com',
+					'didichuxing.com','didiglobal.com','udache.com',
+					'eastmoney.com','dfcfw.com','eastmoneypay.com','emoney.cn',
+					'sichuanair.com','3uair.com','yingtengsmart.com',
+					'apple.com','icloud.com','icloud-content.com','apple-cloudkit.com','mzstatic.com','apple.news','apple-mapkit.com',
+					'cn','126.net','163.com','baidu.com','bdstatic.com','bilibili.com','bilivideo.com',
+					'douyin.com','doubanio.com','douban.com','sina.com','weibo.com','zhihu.com',
+					'bytedance.com','pstatp.com','snssdk.com','xiaohongshu.com',
+					'meituan.com','dianping.com','pinduoduo.com','ctrip.com','12306.cn',
+					'dashscope.aliyuncs.com','minimaxi.com'
+				], server: 'direct-dns' },
 				{ rule_set: 'geosite-cn', server: 'direct-dns' }
 			],
 			strategy: 'prefer_ipv4'
@@ -226,17 +241,44 @@ function singboxConfig(domain) {
 		],
 		route: {
 			auto_detect_interface: true,
+			final: 'proxy',
 			rules: [
 				{ action: 'sniff' },
 				{ protocol: 'dns', action: 'hijack-dns' },
 				{ ip_is_private: true, outbound: 'direct' },
-				{ rule_set: ['geosite-cn', 'geoip-cn'], outbound: 'direct' },
-				{ rule_set: 'geosite-category-ads-all', action: 'reject' }
+				// Twitter/X
+				{ domain_suffix: ['twitter.com','x.com','t.co','twimg.com','twittercdn.com','twtr.com','twimg.co','xn--69aa.com','periscope.tv','pscp.tv','twitpic.com'],
+				  domain_keyword: ['twitter','twimg'], outbound: 'proxy' },
+				// ChatGPT/OpenAI
+				{ domain_suffix: ['openai.com','chatgpt.com','ai.com','oaiusercontent.com','oaistatic.com','auth0.com'], outbound: 'proxy' },
+				// Grok/xAI
+				{ domain_suffix: ['grok.com','x.ai'], outbound: 'proxy' },
+				// Gemini/Google
+				{ domain_suffix: ['google.com','googleapis.com','googleusercontent.com','googlevideo.com'], outbound: 'proxy' },
+				// 微信
+				{ domain_suffix: ['weixin.qq.com','wechat.com','wx.qq.com','weixinbridge.com'], outbound: 'direct' },
+				// 京东
+				{ domain_suffix: ['jd.com','jd.hk','jdcloud.com','360buyimg.com'], outbound: 'direct' },
+				// 阿里系
+				{ domain_suffix: ['taobao.com','tmall.com','alicdn.com','alipay.com','aliyun.com','alibaba.com','alibabacloud.com','alipayobjects.com','mmstat.com','tbcdn.cn','idle.fish'], outbound: 'direct' },
+				// 滴滴
+				{ domain_suffix: ['didichuxing.com','didiglobal.com','udache.com'], outbound: 'direct' },
+				// 东方财富
+				{ domain_suffix: ['eastmoney.com','dfcfw.com','eastmoneypay.com','emoney.cn'], outbound: 'direct' },
+				// 腾讯系
+				{ domain_suffix: ['qq.com','gtimg.com','qpic.cn','tencent.com','myqcloud.com','qcloud.com'], outbound: 'direct' },
+				// 川航/影腾
+				{ domain_suffix: ['sichuanair.com','3uair.com','yingtengsmart.com'], outbound: 'direct' },
+				// Apple
+				{ domain_suffix: ['apple.com','icloud.com','icloud-content.com','apple-cloudkit.com','mzstatic.com','apple.news','apple-mapkit.com'], outbound: 'direct' },
+				// 国内通用
+				{ domain_suffix: ['cn','126.net','163.com','baidu.com','bdstatic.com','bilibili.com','bilivideo.com','douyin.com','doubanio.com','douban.com','sina.com','weibo.com','zhihu.com','bytedance.com','pstatp.com','snssdk.com','xiaohongshu.com','meituan.com','dianping.com','pinduoduo.com','ctrip.com','12306.cn','dashscope.aliyuncs.com','minimaxi.com'], outbound: 'direct' },
+				// GeoIP 中国
+				{ rule_set: 'geoip-cn', outbound: 'direct' }
 			],
 			rule_set: [
 				{ type: 'remote', tag: 'geoip-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs', download_detour: 'proxy' },
-				{ type: 'remote', tag: 'geosite-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs', download_detour: 'proxy' },
-				{ type: 'remote', tag: 'geosite-category-ads-all', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs', download_detour: 'proxy' }
+				{ type: 'remote', tag: 'geosite-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs', download_detour: 'proxy' }
 			]
 		},
 		experimental: { cache_file: { enabled: true } }
