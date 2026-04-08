@@ -116,13 +116,12 @@ async function tcpForward(host, port, data, ws, respHeader, connRef) {
 		const sock = await dial(PROXY_IP, 443, data);
 		connRef.socket = sock;
 		sock.closed.catch(() => {}).finally(() => closeWs(ws));
-		await pipeToWs(sock, ws, respHeader);
+		pipeToWs(sock, ws, respHeader);
 	}
 	try {
 		const sock = await dial(host, port, data);
 		connRef.socket = sock;
-		const ok = await pipeToWs(sock, ws, respHeader);
-		if (!ok) await viaProxy();
+		pipeToWs(sock, ws, respHeader).then(ok => { if (!ok) viaProxy(); });
 	} catch {
 		await viaProxy();
 	}
