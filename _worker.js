@@ -5,27 +5,21 @@ const PROXY_IP = 'ProxyIP.US.CMLiussss.net';
 
 // CDN优选节点，按地区分组，格式: 域名:端口#标签（端口默认443）
 const NODES = [
-	// 香港
-	'saas.sin.fan#HK-1',
-	'cf.008500.xyz#HK-2',
-	'cf.877774.xyz#HK-3',
-	'cf.zhetengsha.eu.org#HK-4',
-	'www.visa.com.hk#HK-5',
-	// 日本
-	'store.ubi.com#JP-1',
-	'cdns.doon.eu.org#JP-2',
-	// 韩国
-	'cf.130519.xyz#KR-1',
-	// 新加坡
-	'mfa.gov.ua#SG-1',
-	'cf.090227.xyz#SG-2',
-	'www.visa.com.sg#SG-3',
-	// 台湾
-	'sub.danfeng.eu.org#TW-1',
-	// 欧美
-	'www.gov.se#EU-1',
-	'shopify.com#US-1',
-	'time.is#US-2',
+	'saas.sin.fan#云服务',
+	'cf.008500.xyz#优选A',
+	'cf.877774.xyz#优选B',
+	'cf.zhetengsha.eu.org#折腾啥',
+	'www.visa.com.hk#维萨港',
+	'store.ubi.com#育碧',
+	'cdns.doon.eu.org#盾云',
+	'cf.130519.xyz#优选C',
+	'mfa.gov.ua#乌外交',
+	'cf.090227.xyz#优选D',
+	'www.visa.com.sg#维萨新',
+	'sub.danfeng.eu.org#丹枫',
+	'www.gov.se#瑞典府',
+	'shopify.com#电商',
+	'time.is#时钟',
 ];
 
 function closeWs(ws) {
@@ -179,14 +173,77 @@ async function handleWs(request) {
 	return new Response(null, { status: 101, webSocket: client });
 }
 
+function parseNode(n) {
+	const [hp, tag] = n.split('#');
+	const [host, port = '443'] = hp.includes(':') ? hp.split(':') : [hp];
+	return { host, port: parseInt(port), tag };
+}
+
 function subscription(domain) {
 	const links = NODES.map(n => {
-		const [hp, tag] = n.split('#');
-		const [host, port = '443'] = hp.includes(':') ? hp.split(':') : [hp];
+		const { host, port, tag } = parseNode(n);
 		return `vless://${UUID}@${host}:${port}?encryption=none&security=tls&sni=${domain}&fp=firefox&allowInsecure=0&type=ws&host=${domain}&path=%2F%3Fed%3D2560#${tag}`;
 	});
 	return new Response(btoa(links.join('\n')), {
 		headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'no-store' }
+	});
+}
+
+function singboxConfig(domain) {
+	const proxies = NODES.map(n => {
+		const { host, port, tag } = parseNode(n);
+		return {
+			type: 'vless', tag, server: host, server_port: port, uuid: UUID,
+			tls: { enabled: true, server_name: domain, utls: { enabled: true, fingerprint: 'firefox' } },
+			transport: { type: 'ws', path: '/', max_early_data: 2560, early_data_header_name: 'Sec-WebSocket-Protocol', headers: { Host: domain } }
+		};
+	});
+	const tags = proxies.map(p => p.tag);
+	const config = {
+		log: { level: 'info', timestamp: true },
+		dns: {
+			servers: [
+				{ tag: 'proxy-dns', address: 'https://1.1.1.1/dns-query', address_resolver: 'direct-dns', detour: 'proxy' },
+				{ tag: 'direct-dns', address: 'https://223.5.5.5/dns-query', detour: 'direct' }
+			],
+			rules: [
+				{ outbound: 'any', server: 'direct-dns' },
+				{ rule_set: 'geosite-cn', server: 'direct-dns' }
+			],
+			strategy: 'prefer_ipv4'
+		},
+		inbounds: [{
+			type: 'tun', tag: 'tun-in',
+			address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+			auto_route: true, strict_route: true, stack: 'mixed',
+			sniff: true, sniff_override_destination: true
+		}],
+		outbounds: [
+			{ type: 'selector', tag: 'proxy', outbounds: ['auto', ...tags], default: 'auto' },
+			{ type: 'urltest', tag: 'auto', outbounds: tags, url: 'https://www.gstatic.com/generate_204', interval: '5m' },
+			...proxies,
+			{ type: 'direct', tag: 'direct' },
+			{ type: 'block', tag: 'block' },
+			{ type: 'dns', tag: 'dns-out' }
+		],
+		route: {
+			auto_detect_interface: true,
+			rules: [
+				{ protocol: 'dns', outbound: 'dns-out' },
+				{ ip_is_private: true, outbound: 'direct' },
+				{ rule_set: ['geosite-cn', 'geoip-cn'], outbound: 'direct' },
+				{ rule_set: 'geosite-category-ads-all', outbound: 'block' }
+			],
+			rule_set: [
+				{ type: 'remote', tag: 'geoip-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs', download_detour: 'proxy' },
+				{ type: 'remote', tag: 'geosite-cn', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs', download_detour: 'proxy' },
+				{ type: 'remote', tag: 'geosite-category-ads-all', format: 'binary', url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs', download_detour: 'proxy' }
+			]
+		},
+		experimental: { cache_file: { enabled: true } }
+	};
+	return new Response(JSON.stringify(config, null, 2), {
+		headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' }
 	});
 }
 
@@ -196,6 +253,7 @@ export default {
 			const url = new URL(request.url);
 			if (request.headers.get('Upgrade') === 'websocket') return handleWs(request);
 			if (url.pathname === `/${UUID}`) return subscription(url.hostname);
+			if (url.pathname === `/${UUID}/singbox`) return singboxConfig(url.hostname);
 			if (url.pathname === '/') return new Response('OK', { status: 200 });
 			return new Response('Not Found', { status: 404 });
 		} catch {
